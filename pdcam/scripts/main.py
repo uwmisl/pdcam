@@ -1,0 +1,128 @@
+import click
+import cv2
+import json
+import matplotlib.pyplot as plt
+from pyzbar.pyzbar import decode
+
+from pdcam.grid import find_grid_transform, GridReference
+from pdcam.plotting import mark_qr_code, plot_template
+
+
+# TODO: Read this from config file or lookup in database based on QR code content
+ELECTRODE_LAYOUT = [
+  [ None, None, None, None, None, None,  None,  None, None, 113, 113],
+  [ None, None, None, None, None, 16,  14,  17, 110, 110, 113],
+  [13, 18, 12, 19, 111, 112, 115, 108, None, 113, 113],
+  [11, 20, 10, 21, 109, 114, 116, 106, None, None, None],
+  [ 9, 22,  8, 23, 107, 117, 105, 119, None, 104, 118],
+  [ 5, 26,  4, 27,   7,  24,   6,  25, 120, 102, 121],
+  [ 3, 28,  2, 29, 103, 101, 122, 100, None, 123, 125],
+  [ 1, 30,  0, 31,  99, 124,  98, 127, None, None, None],
+  [63, 32, 62, 33,  97, 126,  96,  65, None,  92,  67],
+  [61, 34, 60, 35,  95,  64,  94,  93,  66,  90,  69],
+  [59, 36, 58, 37,  91,  68,  89,  70, None,  88,  71],
+  [57, 38, 56, 39,  87,  72,  86,  73, None, None, None],
+  [53, 42, 52, 43,  55,  40,  54,  41,  74,  84,  75],
+  [51, 44, 50, 45,  78,  81,  85,  83,  76,  82,  77],
+  [46, None, None, None, None,  47, None, None, None, None,  80],
+  [49, None, None, None, None,  48, None, None, None, None,  79],
+]
+
+# The coordinates of electrodes to solicit user provided control points during
+# `measure` command
+CONTROL_ELECTRODES = [(0, 2), (0, 15), (5, 15), (10, 15), (8, 5)]
+
+@click.group()
+def main():
+    pass
+
+@main.command()
+@click.option('--reference')
+@click.argument('imagefile')
+def overlay(reference, imagefile):
+    img = cv2.cvtColor(cv2.imread(imagefile), cv2.COLOR_BGR2RGB)
+
+    with open(reference) as f:
+        refdata = json.loads(f.read())
+    ref = GridReference.from_dict(refdata)
+    transform, qrinfo = find_grid_transform(ref, img)
+
+    if transform is None:
+        print("Failed to find a transform, displaying only QR codes found")
+
+    for qr in qrinfo:
+        mark_qr_code(img, qr.polygon)
+    
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    ax.imshow(img)
+    if transform is not None:
+        plot_template(ax, ELECTRODE_LAYOUT, transform=transform)
+
+    plt.show()
+
+
+@main.command()
+@click.argument('imagefile')
+@click.argument('outfile')
+def measure(imagefile, outfile):
+    img = cv2.cvtColor(cv2.imread(imagefile), cv2.COLOR_BGR2RGB)
+
+    qrinfo = decode(img)
+    for qr in qrinfo:
+        print(qr)
+        mark_qr_code(img, qr.polygon)
+    
+    alignment_electrodes = CONTROL_ELECTRODES
+    fig = plt.figure()
+    gs = fig.add_gridspec(4, 4)
+    
+    ax1 = fig.add_subplot(gs[:, :-1])
+    plt.imshow(img)
+    ax1.set_title('Click the top-left corner of the indicated electrode')
+
+    ax2 = fig.add_subplot(gs[:1, -1])
+    plot_template(ax2, ELECTRODE_LAYOUT, [alignment_electrodes[0]])
+    ax2.invert_yaxis()
+    
+    alignment_points = []
+    def onclick(event):
+        ix, iy = event.xdata, event.ydata
+
+        alignment_points.append((ix, iy))
+        
+        if len(alignment_points) == len(alignment_electrodes):
+            fig.canvas.mpl_disconnect(cid)
+            plt.close(1)
+        else:
+            ax2.clear()
+            plot_template(ax2, ELECTRODE_LAYOUT, [alignment_electrodes[len(alignment_points)]])
+            ax2.invert_yaxis()
+            
+            ax1.plot(alignment_points[-1][0], alignment_points[-1][1], 'ro')
+            fig.canvas.draw()
+    
+    cid = fig.canvas.mpl_connect('button_press_event', onclick)
+    fig.tight_layout()
+    plt.show(1) 
+
+    if len(alignment_points) != len(alignment_electrodes):
+        print("Figure closed without collecting enough control points. No file will be saved")
+        return
+
+    for(n, p) in zip(alignment_electrodes, alignment_points):
+        print("%s: (%d, %d)\n" % (n, p[0], p[1]))
+    
+    def map_qr(qr):
+        def to_tuple(point):
+            return (point[0], point[1])
+        return [to_tuple(p) for p in qr.polygon]
+
+    data = {
+        'qr': [map_qr(q) for q in qrinfo],
+        'electrodes': [ {"grid": n, "image": p} for n,p in zip(alignment_electrodes, alignment_points) ]
+    }
+
+    print("Storing reference data to %s" % outfile)
+    with open(outfile, 'w') as f:
+        f.write(json.dumps(data))
