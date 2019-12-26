@@ -88,6 +88,10 @@ def sort_qr_codes(qr_a, qr_b):
 
     return qr_a.tolist(), [p.tolist() for p in list(best_permutation)]
 
+def enhance(image):
+    image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+    image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, blockSize=55, C=5)
+    return image
 
 def find_grid_transform(reference: GridReference, image):
     """Provide transform to move from electrode grid coordinates to pixel 
@@ -99,7 +103,7 @@ def find_grid_transform(reference: GridReference, image):
     * image: An image (numpy array) of the reference board with all QR codes visible
     """
 
-    qrinfo = decode(image, symbols=[ZBarSymbol.QRCODE])
+    qrinfo = decode(enhance(image), symbols=[ZBarSymbol.QRCODE])
 
     if len(qrinfo) != len(reference.qrcodes):
         logger.warn("Found %d qrcodes, needed %d", len(qrinfo), len(reference.qrcodes))
