@@ -7,12 +7,21 @@ setup(
     packages=find_packages(),
     entry_points={
         'console_scripts': [
-            'pdcam-cli = pdcam.scripts.main:main',
+            'pdcam = pdcam.scripts.main:main',
         ],
     },
-    dependency_links=['https://github.com/sushil-bharati/pyzbar/tarball/master#egg=pyzbar-1.0']
+    dependency_links=['https://github.com/sushil-bharati/pyzbar/tarball/master#egg=pyzbar-0.1.8'],
     install_requires=[
         'click',
-        'numpy',
+        'flask',
+        'matplotlib',
+        'numpy',  
+        'pyzbar==0.1.8',
     ],
+    extras_require={
+        'testing': [
+            'pytest',
+            'pytest_benchmark',
+        ],
+    },
 )

@@ -37,6 +37,18 @@ def main():
     pass
 
 @main.command()
+@click.option('--reference', required=False)
+def server(reference):
+    from pdcam.server import create_app
+    if reference is not None:
+        with open(reference) as f:
+            reference = GridReference.from_dict(json.loads(f.read()))
+    else:
+        reference = GridReference([], [])
+    app = create_app(reference, ELECTRODE_LAYOUT)
+    app.run(host="0.0.0.0")
+
+@main.command()
 @click.option('--reference')
 @click.argument('imagefile')
 def overlay(reference, imagefile):
