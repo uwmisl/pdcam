@@ -132,13 +132,20 @@ class Video(object):
         
         return image
             
-    def latest_jpeg(self, markup=False):
+    def latest_jpeg(self, min_frame_num=0, markup=False):
         """Get the latest capture as a JPEG
+
+        min_frame_num can be used for sequential calls to prevent receiving the
+        same frame twice.
         """
+        if min_frame_num is None:
+            min_frame_num = 0
         # Hold the global lock just long enough to read self.active_buffer and get the frame lock
-        self.lock.acquire()
+        self.frame_cv.acquire()
+        self.frame_cv.wait_for(lambda: self.frame_number >= min_frame_num)
+        frame_num = self.frame_number
         with self.frame_locks[self.active_buffer]:
-            self.lock.release()
+            self.frame_cv.release()
             if markup:
                 image = self.markup(self.frames[self.active_buffer])
             else:
@@ -147,7 +154,7 @@ class Video(object):
             if not flag: 
                 print("Error encoding jpeg")
 
-        return bytearray(encoded_image)
+        return bytearray(encoded_image), frame_num
 
     def mjpeg_frame_generator(self, markup=False):
         """Return a generator which will yield JPEG encoded frames as they become available

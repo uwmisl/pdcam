@@ -31,7 +31,16 @@ def create_app(grid_reference, grid_layout):
     @app.route('/latest')
     def latest():
         markup = bool(request.args.get('markup', False))
-        return Response(camera.latest_jpeg(markup=markup), mimetype="image/jpeg")
+        min_frame = request.headers.get('X-Min-Frame-Number', None)
+        if min_frame is None:
+            min_frame = request.args.get('min_frame', None)
+        if min_frame is not None:
+            min_frame = int(min_frame)
+        jpeg, frame_num = camera.latest_jpeg(min_frame_num=min_frame, markup=markup)
+        return Response(
+            jpeg,
+            mimetype="image/jpeg",
+            headers={'X-Frame-Number': str(frame_num)})
 
     @app.route('/transform')
     def transform():
