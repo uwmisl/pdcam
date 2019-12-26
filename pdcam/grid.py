@@ -5,6 +5,7 @@ import logging
 import itertools
 import numpy as np
 from pyzbar.pyzbar import decode
+from pyzbar.wrapper import ZBarSymbol
 from typing import List, Dict, Tuple
 
 
@@ -98,7 +99,7 @@ def find_grid_transform(reference: GridReference, image):
     * image: An image (numpy array) of the reference board with all QR codes visible
     """
 
-    qrinfo = decode(image)
+    qrinfo = decode(image, symbols=[ZBarSymbol.QRCODE])
 
     if len(qrinfo) != len(reference.qrcodes):
         logger.warn("Found %d qrcodes, needed %d", len(qrinfo), len(reference.qrcodes))
