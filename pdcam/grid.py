@@ -62,9 +62,8 @@ def sort_qr_codes(qr_a, qr_b):
         ux_a += qr[1] - qr[0]
     for qr in qr_b:
         ux_b += qr[1] - qr[0]
-    ux_a /= np.mean(ux_a)
-    ux_b /= np.mean(ux_b)
-
+    ux_a /= np.linalg.norm(ux_a)
+    ux_b /= np.linalg.norm(ux_b)
 
     def displacements(qrcodes, ux):
         uy = np.array([ux[1], ux[0]])
