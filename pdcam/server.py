@@ -1,4 +1,5 @@
 from flask import Flask, Response, render_template, request
+from flask_cors import CORS, cross_origin
 import json
 import os
 
@@ -9,6 +10,9 @@ def create_app(grid_reference, grid_layout):
     camera = Video(grid_reference, grid_layout)
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
+    # Enable cross origin requests on all routes
+    CORS(app)
+
 
     # ensure the instance folder exists
     try:
@@ -29,6 +33,7 @@ def create_app(grid_reference, grid_layout):
             mimetype = "multipart/x-mixed-replace; boundary=frame")
     
     @app.route('/latest')
+    @cross_origin(allow_headers=['Content-Type', 'X-Min-Frame-Number'], expose_headers='X-Frame-Number')
     def latest():
         markup = bool(request.args.get('markup', False))
         min_frame = request.headers.get('X-Min-Frame-Number', None)
@@ -40,16 +45,26 @@ def create_app(grid_reference, grid_layout):
         return Response(
             jpeg,
             mimetype="image/jpeg",
-            headers={'X-Frame-Number': str(frame_num)})
+            headers={
+                'X-Frame-Number': str(frame_num),
+            }
+        )
 
     @app.route('/transform')
     def transform():
-        transform = camera.latest_transform()
+        transform, fiducials = camera.latest_transform()
         if transform is not None:
             transform = transform.tolist()
-        return Response(json.dumps(transform), content_type="application/json")
-    return app
 
+        data = {
+            'transform': transform,
+            'qr_codes': fiducials,
+            'image_width': camera.WIDTH,
+            'image_height': camera.HEIGHT,
+        }
+        return Response(json.dumps(data), content_type="application/json")
+
+    return app
 
 def main():
     app = create_app()

@@ -117,8 +117,27 @@ class Video(object):
         Transform is a 3x3 numpy array representing a homography.
         It may be None, if no transform is found.
         """
-        transform, _ = self.grid_finder.latest()
-        return transform
+        transform, qrinfo = self.grid_finder.latest()
+
+        # Convert from the decoded QR objects into list of lists of corners
+        qr_corners = [[tuple(p) for p in qr.corners] for qr in qrinfo]
+        return transform, qr_corners
+
+    def latest_normalized_transform(self):
+        """Get the latest transform solution normalized by image size
+
+        Transform is a 3x3 numpy array representing a homography.
+        It may be None, if no transform is found.
+        """
+        transform = self.latest_transform()
+        if transform is None:
+            return None
+
+        scale = np.zeros((3, 3), dtype=np.float)
+        scale[0, 0] = 1. / self.WIDTH
+        scale[1, 1] = 1. / self.HEIGHT
+        scale[2, 2] = 1.
+        return np.dot(transform, scale)
 
     def markup(self, image):
         # Make a copy so we don't modify the original np array
