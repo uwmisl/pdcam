@@ -18,20 +18,6 @@ and makes video + alignment data available via HTTP.
 
 I've tested with v4. YMMV with v3 or v2.
 
-### pyzbar fork
-
-As of this writing, this applicatin will *NOT WORK* with the latest release of
-`pyzbar` on Pypi, because it does not preserve the order of the QR corners which
-is needed to determine the QR code orientatin. See this PR:
-https://github.com/NaturalHistoryMuseum/pyzbar/pull/39. In the meantime, you can
-install from the master branch of https://github.com/sushil-bharati/pyzbar:
-
-`pip install git+https://github.com/sushil-bharati/pyzbar`
-
-You will also need libzbar:
-
-e.g. `brew install zbar` or `apt-get install libzbar-dev`
-
 # Usage
 
 ## Live image server
@@ -46,15 +32,15 @@ Some available routes:
 
 ## Reference measurement
 
-The electrode grid is located based on two QR codes placed on the board. 
-The location of the QR codes relative to the board has to be measured by taking
-an image of the board, and manually marking a series of control points with: 
+The electrode grid is located based on two AprilTag fiducials placed on the board.
+The location of the fiducials relative to the board has to be measured by taking
+an image of the board, and manually marking a series of control points with:
 
 `pdcam measure image.jpg output.json`
 
-The reference data stored in `output.json` can then be used later to locate 
+The reference data stored in `output.json` can then be used later to locate
 the electrode grid in another image captured from some arbitrary pose, as long
-as the QR codes are detectable.
+as the tags are detectable.
 
 ## Sample python code to find a transform
 
@@ -68,8 +54,8 @@ with open('reference.json') as f:
 
 image = cv2.imread('image.jpg')
 # transform is a 3x3 homography matrix that transforms from electrode grid to pixel coordinates
-# qrcodes is a list of the decoded QR codes as returned by pyzbar decode
-transform, qrcodes = find_grid_transform(ref, image)
+# fiducials is a list of grid.Fiducial objects with `label` and `corners` attributes
+transform, fiducials = find_grid_transform(ref, image)
 ```
 
 # Benchmarks

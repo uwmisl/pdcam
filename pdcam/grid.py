@@ -4,13 +4,16 @@ import cv2
 import logging
 import itertools
 import numpy as np
-from pyzbar.pyzbar import decode
-from pyzbar.wrapper import ZBarSymbol
+import apriltag
 from typing import List, Dict, Tuple
 
 
 logger = logging.getLogger()
 
+class Fiducial(object):
+    def __init__(self, corners, label=""):
+        self.corners = corners
+        self.label = label
 
 class ControlPoint(object):
     def __init__(self, grid_coord: Tuple[float, float], image_coord: Tuple[float, float]):
@@ -25,31 +28,31 @@ class GridReference(object):
 
     Arguments:
     """
-    def __init__(self, qrcodes: List[List[int]], control_points: List[ControlPoint]):
-        if not isinstance(qrcodes, list):
-            raise ValueError("qrcodes should be a list")
+    def __init__(self, fiducials: List[List[int]], control_points: List[ControlPoint]):
+        if not isinstance(fiducials, list):
+            raise ValueError("fiducials should be a list")
 
-        self.qrcodes = qrcodes
+        self.fiducials = fiducials
         self.control_points = control_points
 
     @staticmethod
     def from_dict(data):
-        qrcodes = data['qr']
+        fiducials = data['fiducials']
         control_points = [
             ControlPoint(tuple(p['grid']), tuple(p['image']))
             for p in data['electrodes']
         ]
-        return GridReference(qrcodes, control_points)
+        return GridReference(fiducials, control_points)
 
 
-def sort_qr_codes(qr_a, qr_b):
-    """Sort QR codes in a consistent ordering based on their relative positions. 
+def sort_fiducials(qr_a, qr_b):
+    """Sort 2d fiducial markers in a consistent ordering based on their relative positions. 
 
-    In general, when we find QR codes in an image, we don't expect them to be 
+    In general, when we find fiducials in an image, we don't expect them to be 
     returned in a consistent order. Additionally, the image coordinate may be 
-    rotated from image to image. Here we match qr codes by trying all permutations
-    of matches and taking the best fit. We assume that the QR codes are all
-    aligned in similar directions; this is a constraint on QR code placement.
+    rotated from image to image. Here we match fiducials by trying all permutations
+    of matches and taking the best fit. We assume that the fiducials are all
+    aligned in similar directions; this is a constraint on fiducials placement.
     """
 
     qr_a = np.array(qr_a)
@@ -92,25 +95,34 @@ def enhance(image):
     image = cv2.adaptiveThreshold(image, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, blockSize=55, C=5)
     return image
 
+def find_fiducials(image):
+    detector = apriltag.Detector()
+    result = detector.detect(enhance(image))
+
+    fiducials = [
+        Fiducial(tag.corners.tolist(), tag.tag_id) 
+        for tag in result]
+    return fiducials
+
 def find_grid_transform(reference: GridReference, image):
     """Provide transform to move from electrode grid coordinates to pixel 
     coordinates in a new image. 
 
     Arguments:
-    * reference: Control points and QR codes from a reference/calibration image
+    * reference: Control points and fiducials from a reference/calibration image
         of the electrode board
-    * image: An image (numpy array) of the reference board with all QR codes visible
+    * image: An image (numpy array) of the reference board with all fiducials visible
     """
 
-    qrinfo = decode(enhance(image), symbols=[ZBarSymbol.QRCODE])
+    fiducials = find_fiducials(image)
 
-    if len(qrinfo) != len(reference.qrcodes):
-        logger.warn("Found %d qrcodes, needed %d", len(qrinfo), len(reference.qrcodes))
-        return None, qrinfo
+    if len(fiducials) != len(reference.fiducials):
+        logger.warn("Found %d fiducials, needed %d", len(fiducials), len(reference.fiducials))
+        return None, fiducials
 
-    # Reduce the decoded QR struct to list of corner lists, and match the order to the 
-    # reference QR order based on their geometry
-    refqr, dstqr = sort_qr_codes(reference.qrcodes, [q.polygon for q in qrinfo])
+    # Reduce the decoded maker struct to list of corner lists, and match the order to the 
+    # reference order based on their geometry
+    refqr, dstqr = sort_fiducials(reference.fiducials, [f.corners for f in fiducials])
 
     def flatten(l):
         return [item for sublist in l for item in sublist]
@@ -127,4 +139,4 @@ def find_grid_transform(reference: GridReference, image):
 
     xform = np.dot(H1, H0)
     
-    return xform, qrinfo
+    return xform, fiducials

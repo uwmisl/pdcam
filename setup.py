@@ -10,13 +10,13 @@ setup(
             'pdcam = pdcam.scripts.main:main',
         ],
     },
-    dependency_links=['https://github.com/sushil-bharati/pyzbar/tarball/master#egg=pyzbar-0.1.8'],
     install_requires=[
+        'apriltag',
         'click',
         'flask',
+        'flask-cors',
         'matplotlib',
-        'numpy',  
-        'pyzbar==0.1.8',
+        'numpy',
     ],
     extras_require={
         'testing': [

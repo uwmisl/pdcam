@@ -56,10 +56,10 @@ def plot_template(ax, layout, highlights=None, transform=None):
     ax.autoscale()
     return
 
-def mark_qr_code(img, polygon):
-    p = polygon
-    cv2.line(img, (p[0].x, p[0].y), (p[1].x, p[1].y), (0, 0, 255), 2)
-    cv2.line(img, (p[1].x, p[1].y), (p[2].x, p[2].y), (0, 0, 255), 2)
-    cv2.line(img, (p[2].x, p[2].y), (p[3].x, p[3].y), (0, 0, 255), 2)
-    cv2.line(img, (p[3].x, p[3].y), (p[0].x, p[0].y), (0, 0, 255), 2)
-    cv2.circle(img, (p[0].x, p[0].y), 3, (0, 255, 0), 3)
+def mark_fiducial(img, polygon):
+    p = [(int(p[0]), int(p[1])) for p in polygon]
+    cv2.line(img, (p[0][0], p[0][1]), (p[1][0], p[1][1]), (0, 0, 255), 2)
+    cv2.line(img, (p[1][0], p[1][1]), (p[2][0], p[2][1]), (0, 0, 255), 2)
+    cv2.line(img, (p[2][0], p[2][1]), (p[3][0], p[3][1]), (0, 0, 255), 2)
+    cv2.line(img, (p[3][0], p[3][1]), (p[0][0], p[0][1]), (0, 0, 255), 2)
+    cv2.circle(img, (p[0][0], p[0][1]), 3, (0, 255, 0), 3)

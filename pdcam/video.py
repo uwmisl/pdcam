@@ -6,7 +6,7 @@ import time
 from picamera import PiCamera
 
 from pdcam.grid import find_grid_transform
-from pdcam.plotting import mark_qr_code, mark_template
+from pdcam.plotting import mark_fiducial, mark_template
 
 class AsyncGridLocate(object):
     def __init__(self, grid_reference, callback=None, timeout_frames=3):
@@ -23,9 +23,9 @@ class AsyncGridLocate(object):
 
     def push(self, image):
         """Push a new image to be processed
-        
-        Images aren't queued. If you push a new image before processing has 
-        begun on the previous image, the previous image will be dropped. 
+
+        Images aren't queued. If you push a new image before processing has
+        begun on the previous image, the previous image will be dropped.
         """
         with self.cv:
             self.pending_image = image
@@ -33,9 +33,9 @@ class AsyncGridLocate(object):
 
     def latest(self):
         with self.cv:
-            transform, qrinfo = self.latest_result
+            transform, fiducials = self.latest_result
 
-        return transform, qrinfo
+        return transform, fiducials
 
     def thread_entry(self):
         while True:
@@ -44,34 +44,34 @@ class AsyncGridLocate(object):
                 img = self.pending_image
                 self.pending_image = None
 
-            # Now we've got the image, and cleared pending image, 
+            # Now we've got the image, and cleared pending image,
             # we can release the lock and do the processing
-            transform, qrinfo = find_grid_transform(self.grid_reference, img)
-            
+            transform, fiducials = find_grid_transform(self.grid_reference, img)
+
             with self.cv:
                 if transform is not None:
                     self.fail_count = 0
-                    self.latest_result = (transform, qrinfo)
+                    self.latest_result = (transform, fiducials)
                 else:
                     self.fail_count += 1
                     if self.fail_count > self.timeout_frames:
-                        self.latest_result = (transform, qrinfo)
+                        self.latest_result = (transform, fiducials)
 
             if self.callback is not None:
-                self.callback(transform, qrinfo)
-    
+                self.callback(transform, fiducials)
+
 
 class Video(object):
     """Video capture process
 
-    Launches background threads to continuously capture frames from raspberry PI 
+    Launches background threads to continuously capture frames from raspberry PI
     camera (MMAL API) and process them to locate QR codes.
     """
 
     WIDTH = 1024
     HEIGHT = 768
     NBUFFER = 3
-    PROCESS_PERIOD = 1.0
+    PROCESS_PERIOD = 0.5
     def __init__(self, grid_reference, grid_layout):
         self.frame_number = 0
         self.grid_layout = grid_layout
@@ -89,7 +89,7 @@ class Video(object):
         self.capture_thread = threading.Thread(target=self.capture_thread_entry)
         self.capture_thread.daemon = True
         self.capture_thread.start()
-    
+
     def capture_thread_entry(self):
         print("Running capture thread")
         with PiCamera() as camera:
@@ -123,15 +123,15 @@ class Video(object):
     def markup(self, image):
         # Make a copy so we don't modify the original np array
         image = image.copy()
-        transform, qrinfo = self.grid_finder.latest()
-        for qr in qrinfo:
-            mark_qr_code(image, qr.polygon)
-        
+        transform, fiducials = self.grid_finder.latest()
+        for f in fiducials:
+            mark_fiducial(image, f.corners)
+
         if transform is not None:
             mark_template(image, self.grid_layout, transform)
-        
+
         return image
-            
+
     def latest_jpeg(self, min_frame_num=0, markup=False):
         """Get the latest capture as a JPEG
 
@@ -151,7 +151,7 @@ class Video(object):
             else:
                 image = self.frames[self.active_buffer]
             (flag, encoded_image) = cv2.imencode(".jpg", image)
-            if not flag: 
+            if not flag:
                 print("Error encoding jpeg")
 
         return bytearray(encoded_image), frame_num
@@ -159,7 +159,7 @@ class Video(object):
     def mjpeg_frame_generator(self, markup=False):
         """Return a generator which will yield JPEG encoded frames as they become available
         Bytes are preceded by a `--frame` separator, and a content header,
-        is included so it can be returned as part of a HTTP multi-part response. 
+        is included so it can be returned as part of a HTTP multi-part response.
         """
         last_fn = 0
         while True:
@@ -174,7 +174,7 @@ class Video(object):
                     # encode the frame in JPEG format
                     (flag, encoded_image) = cv2.imencode(".jpg", image)
 
-                    if not flag: 
+                    if not flag:
                         print("Error encoding image %d" % self.frame_number)
                         continue
 

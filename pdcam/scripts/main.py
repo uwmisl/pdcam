@@ -4,8 +4,8 @@ import json
 import matplotlib.pyplot as plt
 from pyzbar.pyzbar import decode
 
-from pdcam.grid import find_grid_transform, GridReference
-from pdcam.plotting import mark_qr_code, plot_template
+from pdcam.grid import find_fiducials, find_grid_transform, GridReference
+from pdcam.plotting import mark_fiducial, plot_template
 
 
 # TODO: Read this from config file or lookup in database based on QR code content
@@ -57,13 +57,13 @@ def overlay(reference, imagefile):
     with open(reference) as f:
         refdata = json.loads(f.read())
     ref = GridReference.from_dict(refdata)
-    transform, qrinfo = find_grid_transform(ref, img)
+    transform, fiducials = find_grid_transform(ref, img)
 
     if transform is None:
         print("Failed to find a transform, displaying only QR codes found")
 
-    for qr in qrinfo:
-        mark_qr_code(img, qr.polygon)
+    for f in fiducials:
+        mark_fiducial(img, f.corners)
     
     fig = plt.figure()
     ax = fig.add_subplot(1, 1, 1)
@@ -80,10 +80,10 @@ def overlay(reference, imagefile):
 def measure(imagefile, outfile):
     img = cv2.cvtColor(cv2.imread(imagefile), cv2.COLOR_BGR2RGB)
 
-    qrinfo = decode(img)
-    for qr in qrinfo:
-        print(qr)
-        mark_qr_code(img, qr.polygon)
+    fiducials = find_fiducials(img)
+    for f in fiducials:
+        print(f)
+        mark_fiducial(img, f.corners)
     
     alignment_electrodes = CONTROL_ELECTRODES
     fig = plt.figure()
@@ -125,13 +125,13 @@ def measure(imagefile, outfile):
     for(n, p) in zip(alignment_electrodes, alignment_points):
         print("%s: (%d, %d)\n" % (n, p[0], p[1]))
     
-    def map_qr(qr):
+    def map_fiducial(f):
         def to_tuple(point):
             return (point[0], point[1])
-        return [to_tuple(p) for p in qr.polygon]
+        return [to_tuple(p) for p in f.corners]
 
     data = {
-        'qr': [map_qr(q) for q in qrinfo],
+        'fiducials': [map_fiducial(q) for q in fiducials],
         'electrodes': [ {"grid": n, "image": p} for n,p in zip(alignment_electrodes, alignment_points) ]
     }
 
