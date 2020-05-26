@@ -9,7 +9,8 @@ from pdcam.plotting import mark_fiducial, plot_template
 
 
 # TODO: Read this from config file or lookup in database based on QR code content
-ELECTRODE_LAYOUT = [
+
+ELECTRODE_LAYOUT_v3 = [
   [ None, None, None, None, None, None,  None,  None, None, 113, 113],
   [ None, None, None, None, None, 16,  14,  17, 110, 110, 113],
   [13, 18, 12, 19, 111, 112, 115, 108, None, 113, 113],
@@ -30,7 +31,22 @@ ELECTRODE_LAYOUT = [
 
 # The coordinates of electrodes to solicit user provided control points during
 # `measure` command
-CONTROL_ELECTRODES = [(0, 2), (0, 15), (5, 15), (10, 15), (8, 5)]
+CONTROL_ELECTRODES_v3 = [(0, 2), (0, 15), (5, 15), (10, 15), (8, 5)]
+
+ELECTRODE_LAYOUT_v4 =  [
+    [None, None, None, None, None, None, 28, 98, None, None, None, None, None, None],
+    [None, None, None, None, None, None, 27, 99, None, None, None, None, None, None],
+    [11, 14, 16, 18, 20, 23, 26, 100, 102, 105, 109, 111, 113, 114],
+    [12, 13, 15, 17, 19, 22, 25, 101, 104, 107, 110, 112, 115, 116],
+    [5, 6, 7, 4, 3, 21, 24, 103, 108, 126, 125, 122, 123, 124],
+    [0, 63, 62, 1, 2, 55, 46, 68, 106, 127, 64, 67, 66, 65],
+    [60, 61, 54, 49, 51, 48, 44, 69, 82, 81, 79, 77, 76, 75],
+    [53, 50, 47, 45, 42, 41, 43, 87, 86, 85, 84, 83, 80, 78],
+    [None, None, None, None, None, None, 40, 88, None, None, None, None, None, None],
+    [None, None, None, None, None, None, 39, 89, None, None, None, None, None, None],
+    [None, None, None, None, None, None, 38, 90, None, None, None, None, None, None],
+]
+CONTROL_ELECTRODES_v4 = [(0, 2), (0, 7), (7, 1), (7,10), (13, 2), (13, 7)]
 
 @click.group()
 def main():
@@ -38,14 +54,20 @@ def main():
 
 @main.command()
 @click.option('--reference', required=False)
-def server(reference):
+@click.option('--v4', is_flag=True, default=False)
+def server(reference, v4):
     from pdcam.server import create_app
+
+    electrode_layout = ELECTRODE_LAYOUT_v3
+    if v4:
+        electrode_layout = ELECTRODE_LAYOUT_v4
+
     if reference is not None:
         with open(reference) as f:
             reference = GridReference.from_dict(json.loads(f.read()))
     else:
         reference = GridReference([], [])
-    app = create_app(reference, ELECTRODE_LAYOUT)
+    app = create_app(reference, electrode_layout)
     app.run(host="0.0.0.0")
 
 @main.command()
@@ -77,7 +99,8 @@ def overlay(reference, imagefile):
 @main.command()
 @click.argument('imagefile')
 @click.argument('outfile')
-def measure(imagefile, outfile):
+@click.option('--v4', is_flag=True, default=False)
+def measure(imagefile, outfile, v4):
     img = cv2.cvtColor(cv2.imread(imagefile), cv2.COLOR_BGR2RGB)
 
     fiducials = find_fiducials(img)
@@ -85,7 +108,13 @@ def measure(imagefile, outfile):
         print(f)
         mark_fiducial(img, f.corners)
     
-    alignment_electrodes = CONTROL_ELECTRODES
+    electrode_layout = ELECTRODE_LAYOUT_v3
+    control_electrodes = CONTROL_ELECTRODES_v3
+    if v4:
+        electrode_layout = ELECTRODE_LAYOUT_v4
+        control_electrodes = CONTROL_ELECTRODES_v4
+
+    alignment_electrodes = control_electrodes
     fig = plt.figure()
     gs = fig.add_gridspec(4, 4)
     
@@ -94,7 +123,7 @@ def measure(imagefile, outfile):
     ax1.set_title('Click the top-left corner of the indicated electrode')
 
     ax2 = fig.add_subplot(gs[:1, -1])
-    plot_template(ax2, ELECTRODE_LAYOUT, [alignment_electrodes[0]])
+    plot_template(ax2, electrode_layout, [alignment_electrodes[0]])
     ax2.invert_yaxis()
     
     alignment_points = []
@@ -108,7 +137,7 @@ def measure(imagefile, outfile):
             plt.close(1)
         else:
             ax2.clear()
-            plot_template(ax2, ELECTRODE_LAYOUT, [alignment_electrodes[len(alignment_points)]])
+            plot_template(ax2, electrode_layout, [alignment_electrodes[len(alignment_points)]])
             ax2.invert_yaxis()
             
             ax1.plot(alignment_points[-1][0], alignment_points[-1][1], 'ro')
