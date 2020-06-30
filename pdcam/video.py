@@ -169,7 +169,7 @@ class Video(object):
                 image = self.markup(self.frames[self.active_buffer])
             else:
                 image = self.frames[self.active_buffer]
-            (flag, encoded_image) = cv2.imencode(".jpg", image)
+            (flag, encoded_image) = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 85])
             if not flag:
                 print("Error encoding jpeg")
 
