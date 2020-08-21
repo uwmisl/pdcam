@@ -16,7 +16,7 @@ and makes video + alignment data available via HTTP.
 
 ### OpenCV
 
-I've tested with v4. YMMV with v3 or v2.
+I've tested with OpenCV v4. YMMV with v3 or v2.
 
 # Usage
 
@@ -32,8 +32,8 @@ Some available routes:
 
 ## Reference measurement
 
-The electrode grid is located based on two AprilTag fiducials placed on the board.
-The location of the fiducials relative to the board has to be measured by taking
+The electrode grid is located based on AprilTag fiducials placed on the board.
+The location of the fiducials relative to the board can be measured by taking
 an image of the board, and manually marking a series of control points with:
 
 `pdcam measure image.jpg output.json`
@@ -41,6 +41,10 @@ an image of the board, and manually marking a series of control points with:
 The reference data stored in `output.json` can then be used later to locate
 the electrode grid in another image captured from some arbitrary pose, as long
 as the tags are detectable.
+
+This is useful when taping paper fiducials onto a v3 electrode board, for example. 
+When using electrode board v4, the fiducials are included in the PCB design, so 
+they are known. A calibration for this board is included in `board_v4.json`. 
 
 ## Sample python code to find a transform
 
