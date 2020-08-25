@@ -55,7 +55,8 @@ def main():
 @main.command()
 @click.option('--reference', required=False)
 @click.option('--v4', is_flag=True, default=False)
-def server(reference, v4):
+@click.option('--flip', is_flag=True, default=False)
+def server(reference, v4, flip):
     from pdcam.server import create_app
 
     electrode_layout = ELECTRODE_LAYOUT_v3
@@ -67,7 +68,7 @@ def server(reference, v4):
             reference = GridReference.from_dict(json.loads(f.read()))
     else:
         reference = GridReference([], [])
-    app = create_app(reference, electrode_layout)
+    app = create_app(reference, electrode_layout, flip)
     app.run(host="0.0.0.0")
 
 @main.command()

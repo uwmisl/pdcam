@@ -72,7 +72,7 @@ class Video(object):
     HEIGHT = 768
     NBUFFER = 3
     PROCESS_PERIOD = 0.5
-    def __init__(self, grid_reference, grid_layout):
+    def __init__(self, grid_reference, grid_layout, flip=False):
         self.frame_number = 0
         self.grid_layout = grid_layout
         self.frames = [np.empty((self.WIDTH * self.HEIGHT * 3,), dtype=np.uint8) for _ in range(self.NBUFFER)]
@@ -81,6 +81,7 @@ class Video(object):
         self.frame_cv = threading.Condition(self.lock)
         self.active_buffer = 0
         self.last_process_time = 0.0
+        self.flip = flip
 
         if grid_reference is not None:
             self.grid_finder = AsyncGridLocate(grid_reference)
@@ -105,7 +106,7 @@ class Video(object):
                     cur_time = time.monotonic()
                     if cur_time - self.last_process_time > self.PROCESS_PERIOD:
                         self.last_process_time = cur_time
-                        self.grid_finder.push(self.frames[next_buffer].copy())
+                        self.grid_finder.push(self.get_buffer(next_buffer).copy())
                 with self.lock:
                     self.active_buffer = next_buffer
                     self.frame_number += 1
@@ -151,6 +152,12 @@ class Video(object):
 
         return image
 
+    def get_buffer(self, index):
+        image = self.frames[index]
+        if self.flip:
+            image = np.flip(image, axis=(0,1))
+        return image
+
     def latest_jpeg(self, min_frame_num=0, markup=False):
         """Get the latest capture as a JPEG
 
@@ -166,9 +173,9 @@ class Video(object):
         with self.frame_locks[self.active_buffer]:
             self.frame_cv.release()
             if markup:
-                image = self.markup(self.frames[self.active_buffer])
+                image = self.markup(self.get_buffer(self.active_buffer))
             else:
-                image = self.frames[self.active_buffer]
+                image = self.get_buffer(self.active_buffer)
             (flag, encoded_image) = cv2.imencode(".jpg", image, [cv2.IMWRITE_JPEG_QUALITY, 85])
             if not flag:
                 print("Error encoding jpeg")
@@ -187,9 +194,9 @@ class Video(object):
                 if self.frame_number > last_fn:
                     last_fn = self.frame_number
                     if markup:
-                        image = self.markup(self.frames[self.active_buffer])
+                        image = self.markup(self.get_buffer(self.active_buffer))
                     else:
-                        image = self.frames[self.active_buffer]
+                        image = self.get_buffer(self.active_buffer)
                     # encode the frame in JPEG format
                     (flag, encoded_image) = cv2.imencode(".jpg", image)
 

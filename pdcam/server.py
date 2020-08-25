@@ -6,8 +6,8 @@ import os
 from .video import Video
 
 
-def create_app(grid_reference, grid_layout):
-    camera = Video(grid_reference, grid_layout)
+def create_app(grid_reference, grid_layout, flip):
+    camera = Video(grid_reference, grid_layout, flip)
     # create and configure the app
     app = Flask(__name__, instance_relative_config=True)
     # Enable cross origin requests on all routes
