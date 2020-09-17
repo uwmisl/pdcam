@@ -48,6 +48,17 @@ ELECTRODE_LAYOUT_v4 =  [
 ]
 CONTROL_ELECTRODES_v4 = [(0, 2), (0, 7), (7, 1), (7,10), (13, 2), (13, 7)]
 
+ELECTRODE_LAYOUT_v5 = [
+    [ None,  7, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,120, None],
+    [ None,  1, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None,126, None],
+    [ None,  0,  8,  9, 10, 11, 12, 13, 14, 15, 16,111,112,113,114,115,116,117,118,119,127, None],
+    [ None, 63, 55, 54, 53, 52, 51, 50, 49, 48, 47, 80, 79, 78, 77, 76, 75, 74, 73, 72, 64, None],
+    [ None, 62, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, 65, None],
+    [ None, 56, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, 71, None]
+]
+CONTROL_ELECTRODES_v5 = [(1, 0), (1, 5), (20, 0), (20, 5)]
+
+
 @click.group()
 def main():
     pass
@@ -101,7 +112,8 @@ def overlay(reference, imagefile):
 @click.argument('imagefile')
 @click.argument('outfile')
 @click.option('--v4', is_flag=True, default=False)
-def measure(imagefile, outfile, v4):
+@click.option('--v5', is_flag=True, default=False)
+def measure(imagefile, outfile, v4, v5):
     img = cv2.cvtColor(cv2.imread(imagefile), cv2.COLOR_BGR2RGB)
 
     fiducials = find_fiducials(img)
@@ -114,6 +126,10 @@ def measure(imagefile, outfile, v4):
     if v4:
         electrode_layout = ELECTRODE_LAYOUT_v4
         control_electrodes = CONTROL_ELECTRODES_v4
+    elif v5: 
+        electrode_layout = ELECTRODE_LAYOUT_v5
+        control_electrodes = CONTROL_ELECTRODES_v5
+
 
     alignment_electrodes = control_electrodes
     fig = plt.figure()
